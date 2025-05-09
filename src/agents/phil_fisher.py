@@ -181,10 +181,24 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
     details = []
     raw_score = 0  # up to 9 raw points => scale to 0–10
 
+    # Optimize: single pass to collect all relevant fields
+    revenues = []
+    eps_values = []
+    rnd_values = []
+
+    for fi in financial_line_items:
+        r = fi.revenue
+        e = fi.earnings_per_share
+        rnd = fi.research_and_development
+        if r is not None:
+            revenues.append(r)
+        if e is not None:
+            eps_values.append(e)
+        if rnd is not None:
+            rnd_values.append(rnd)
+
     # 1. Revenue Growth (YoY)
-    revenues = [fi.revenue for fi in financial_line_items if fi.revenue is not None]
     if len(revenues) >= 2:
-        # We'll look at the earliest vs. latest to gauge multi-year growth if possible
         latest_rev = revenues[0]
         oldest_rev = revenues[-1]
         if oldest_rev > 0:
@@ -206,7 +220,6 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
         details.append("Not enough revenue data points for growth calculation.")
 
     # 2. EPS Growth (YoY)
-    eps_values = [fi.earnings_per_share for fi in financial_line_items if fi.earnings_per_share is not None]
     if len(eps_values) >= 2:
         latest_eps = eps_values[0]
         oldest_eps = eps_values[-1]
@@ -229,14 +242,11 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
         details.append("Not enough EPS data points for growth calculation.")
 
     # 3. R&D as % of Revenue (if we have R&D data)
-    rnd_values = [fi.research_and_development for fi in financial_line_items if fi.research_and_development is not None]
-    if rnd_values and revenues and len(rnd_values) == len(revenues):
-        # We'll just look at the most recent for a simple measure
+    # Match lengths by iterating over original data for recent only
+    if revenues and rnd_values and len(rnd_values) == len(revenues):
         recent_rnd = rnd_values[0]
         recent_rev = revenues[0] if revenues[0] else 1e-9
         rnd_ratio = recent_rnd / recent_rev
-        # Generally, Fisher admired companies that invest aggressively in R&D,
-        # but it must be appropriate. We'll assume "3%-15%" is healthy, just as an example.
         if 0.03 <= rnd_ratio <= 0.15:
             raw_score += 3
             details.append(f"R&D ratio {rnd_ratio:.1%} indicates significant investment in future growth")
