@@ -34,11 +34,13 @@ class LLMModel(BaseModel):
 
     def has_json_mode(self) -> bool:
         """Check if the model supports JSON mode"""
-        if self.is_deepseek() or self.is_gemini():
+        model_name = self.model_name
+        provider = self.provider
+        if provider == ModelProvider.OLLAMA:
+            # Only certain Ollama models support JSON mode
+            return "llama3" in model_name or "neural-chat" in model_name
+        if model_name.startswith("deepseek") or model_name.startswith("gemini"):
             return False
-        # Only certain Ollama models support JSON mode
-        if self.is_ollama():
-            return "llama3" in self.model_name or "neural-chat" in self.model_name
         return True
 
     def is_deepseek(self) -> bool:
