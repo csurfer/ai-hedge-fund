@@ -92,8 +92,12 @@ OLLAMA_LLM_ORDER = [model.to_choice_tuple() for model in OLLAMA_MODELS]
 
 def get_model_info(model_name: str) -> LLMModel | None:
     """Get model information by model_name"""
-    all_models = AVAILABLE_MODELS + OLLAMA_MODELS
-    return next((model for model in all_models if model.model_name == model_name), None)
+    # Search AVAILABLE_MODELS first, then OLLAMA_MODELS, avoid unnecessary list concatenation
+    for models in (AVAILABLE_MODELS, OLLAMA_MODELS):
+        for model in models:
+            if model.model_name == model_name:
+                return model
+    return None
 
 
 def get_model(model_name: str, model_provider: ModelProvider) -> ChatOpenAI | ChatGroq | ChatOllama | None:
