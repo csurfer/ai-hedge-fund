@@ -51,7 +51,8 @@ class LLMModel(BaseModel):
 
     def is_ollama(self) -> bool:
         """Check if the model is an Ollama model"""
-        return self.provider == ModelProvider.OLLAMA
+        # Use identity comparison for enums (faster than equality)
+        return self.provider is ModelProvider.OLLAMA
 
 
 # Define available models
