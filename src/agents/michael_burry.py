@@ -280,8 +280,16 @@ def _analyze_insider_activity(insider_trades):
         details.append("No insider trade data")
         return {"score": score, "max_score": max_score, "details": "; ".join(details)}
 
-    shares_bought = sum(t.transaction_shares or 0 for t in insider_trades if (t.transaction_shares or 0) > 0)
-    shares_sold = abs(sum(t.transaction_shares or 0 for t in insider_trades if (t.transaction_shares or 0) < 0))
+    # Single pass to compute shares_bought and shares_sold
+    shares_bought = 0
+    shares_sold = 0
+    for t in insider_trades:
+        val = t.transaction_shares or 0
+        if val > 0:
+            shares_bought += val
+        elif val < 0:
+            shares_sold -= val  # subtract because val is negative
+
     net = shares_bought - shares_sold
     if net > 0:
         score += 2 if net / max(shares_sold, 1) > 1 else 1
