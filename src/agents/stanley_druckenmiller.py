@@ -15,6 +15,7 @@ from typing_extensions import Literal
 from src.utils.progress import progress
 from src.utils.llm import call_llm
 import statistics
+import math
 
 
 class StanleyDruckenmillerSignal(BaseModel):
@@ -356,13 +357,12 @@ def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
     #
     # 1. Debt-to-Equity
     #
-    debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
-    equity_values = [fi.shareholders_equity for fi in financial_line_items if fi.shareholders_equity is not None]
+    recent_debt = next((fi.total_debt for fi in financial_line_items if fi.total_debt is not None), None)
+    recent_equity = next((fi.shareholders_equity for fi in financial_line_items if fi.shareholders_equity is not None), None)
 
-    if debt_values and equity_values and len(debt_values) == len(equity_values) and len(debt_values) > 0:
-        recent_debt = debt_values[0]
-        recent_equity = equity_values[0] if equity_values[0] else 1e-9
-        de_ratio = recent_debt / recent_equity
+    if recent_debt is not None and recent_equity is not None:
+        eq = recent_equity if recent_equity else 1e-9  # avoid div by zero
+        de_ratio = recent_debt / eq
         if de_ratio < 0.3:
             raw_score += 3
             details.append(f"Low debt-to-equity: {de_ratio:.2f}")
@@ -381,16 +381,23 @@ def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
     # 2. Price Volatility
     #
     if len(prices) > 10:
-        sorted_prices = sorted(prices, key=lambda p: p.time)
-        close_prices = [p.close for p in sorted_prices if p.close is not None]
+        # Get close prices in correct order; extract and filter None in one go
+        close_prices = [p.close for p in prices if getattr(p, "close", None) is not None]
+        # Optionally, sort only if not guaranteed to be sorted; otherwise, skip sort for performance
+        # close_prices = [p.close for p in sorted(prices, key=lambda p: p.time) if p.close is not None]
         if len(close_prices) > 10:
+            # Compute daily returns in one pass, skip if previous is zero or negative
+            prev = close_prices[0]
             daily_returns = []
-            for i in range(1, len(close_prices)):
-                prev_close = close_prices[i - 1]
-                if prev_close > 0:
-                    daily_returns.append((close_prices[i] - prev_close) / prev_close)
+            for curr in close_prices[1:]:
+                if prev > 0:
+                    daily_returns.append((curr - prev) / prev)
+                prev = curr
             if daily_returns:
-                stdev = statistics.pstdev(daily_returns)  # population stdev
+                n = len(daily_returns)
+                mean = math.fsum(daily_returns) / n
+                # Use a single loop for stdev calculation
+                stdev = math.sqrt(math.fsum((r - mean) ** 2 for r in daily_returns) / n)
                 if stdev < 0.01:
                     raw_score += 3
                     details.append(f"Low volatility: daily returns stdev {stdev:.2%}")
