@@ -185,30 +185,34 @@ def _analyze_value(metrics, line_items, market_cap):
 
     max_score = 6  # 4 pts for FCF‑yield, 2 pts for EV/EBIT
     score = 0
-    details: list[str] = []
+    details = []
 
     # Free‑cash‑flow yield
-    latest_item = _latest_line_item(line_items)
-    fcf = getattr(latest_item, "free_cash_flow", None) if latest_item else None
-    if fcf is not None and market_cap:
-        fcf_yield = fcf / market_cap
-        if fcf_yield >= 0.15:
-            score += 4
-            details.append(f"Extraordinary FCF yield {fcf_yield:.1%}")
-        elif fcf_yield >= 0.12:
-            score += 3
-            details.append(f"Very high FCF yield {fcf_yield:.1%}")
-        elif fcf_yield >= 0.08:
-            score += 2
-            details.append(f"Respectable FCF yield {fcf_yield:.1%}")
+    if line_items:
+        latest_item = line_items[0]
+        fcf = getattr(latest_item, "free_cash_flow", None)
+        if fcf is not None and market_cap:
+            fcf_yield = fcf / market_cap
+            if fcf_yield >= 0.15:
+                score += 4
+                details.append(f"Extraordinary FCF yield {fcf_yield:.1%}")
+            elif fcf_yield >= 0.12:
+                score += 3
+                details.append(f"Very high FCF yield {fcf_yield:.1%}")
+            elif fcf_yield >= 0.08:
+                score += 2
+                details.append(f"Respectable FCF yield {fcf_yield:.1%}")
+            else:
+                details.append(f"Low FCF yield {fcf_yield:.1%}")
         else:
-            details.append(f"Low FCF yield {fcf_yield:.1%}")
+            details.append("FCF data unavailable")
     else:
         details.append("FCF data unavailable")
 
     # EV/EBIT (from financial metrics)
     if metrics:
-        ev_ebit = getattr(metrics[0], "ev_to_ebit", None)
+        met0 = metrics[0]
+        ev_ebit = getattr(met0, "ev_to_ebit", None)
         if ev_ebit is not None:
             if ev_ebit < 6:
                 score += 2
