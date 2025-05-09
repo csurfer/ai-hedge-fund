@@ -277,34 +277,38 @@ def analyze_insider_activity(insider_trades: list) -> dict:
         details.append("No insider trades data; defaulting to neutral")
         return {"score": score, "details": "; ".join(details)}
 
-    buys, sells = 0, 0
+    buys = 0
+    sells = 0
+
+    details_append = details.append  # Local binding for a small speedup
+
     for trade in insider_trades:
-        # Use transaction_shares to determine if it's a buy or sell
-        # Negative shares = sell, positive shares = buy
-        if trade.transaction_shares is not None:
-            if trade.transaction_shares > 0:
+        ts = trade.transaction_shares
+        # Only count if not None
+        if ts is not None:
+            if ts > 0:
                 buys += 1
-            elif trade.transaction_shares < 0:
+            elif ts < 0:
                 sells += 1
 
     total = buys + sells
     if total == 0:
-        details.append("No buy/sell transactions found; neutral")
+        details_append("No buy/sell transactions found; neutral")
         return {"score": score, "details": "; ".join(details)}
 
     buy_ratio = buys / total
     if buy_ratio > 0.7:
         # Heavy buying => +3 points from the neutral 5 => 8
         score = 8
-        details.append(f"Heavy insider buying: {buys} buys vs. {sells} sells")
+        details_append(f"Heavy insider buying: {buys} buys vs. {sells} sells")
     elif buy_ratio > 0.4:
         # Moderate buying => +1 => 6
         score = 6
-        details.append(f"Moderate insider buying: {buys} buys vs. {sells} sells")
+        details_append(f"Moderate insider buying: {buys} buys vs. {sells} sells")
     else:
         # Low insider buying => -1 => 4
         score = 4
-        details.append(f"Mostly insider selling: {buys} buys vs. {sells} sells")
+        details_append(f"Mostly insider selling: {buys} buys vs. {sells} sells")
 
     return {"score": score, "details": "; ".join(details)}
 
