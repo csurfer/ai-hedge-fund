@@ -504,20 +504,29 @@ def analyze_sentiment(news_items: list) -> dict:
     if not news_items:
         return {"score": 5, "details": "No news data; defaulting to neutral sentiment"}
 
-    negative_keywords = ["lawsuit", "fraud", "negative", "downturn", "decline", "investigation", "recall"]
+    negative_keywords = ("lawsuit", "fraud", "negative", "downturn", "decline", "investigation", "recall")
     negative_count = 0
+
+    # Inlined contains-negative-keyword for speed, avoids multiple lower() calls:
     for news in news_items:
-        title_lower = (news.title or "").lower()
-        if any(word in title_lower for word in negative_keywords):
-            negative_count += 1
+        title = news.title
+        if title:
+            title_lower = title.lower()
+            for word in negative_keywords:
+                if word in title_lower:
+                    negative_count += 1
+                    break  # Found one negative word, skip to next title
+
+    n_items = len(news_items)
+    threshold = n_items * 0.3
 
     details = []
-    if negative_count > len(news_items) * 0.3:
+    if negative_count > threshold:
         score = 3
-        details.append(f"High proportion of negative headlines: {negative_count}/{len(news_items)}")
+        details.append(f"High proportion of negative headlines: {negative_count}/{n_items}")
     elif negative_count > 0:
         score = 6
-        details.append(f"Some negative headlines: {negative_count}/{len(news_items)}")
+        details.append(f"Some negative headlines: {negative_count}/{n_items}")
     else:
         score = 8
         details.append("Mostly positive/neutral headlines")
